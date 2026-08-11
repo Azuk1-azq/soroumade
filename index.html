@@ -212,7 +212,7 @@ function genRoomCode(){
 }
 function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstElementChild; }
 
-// ★ ここを修正しました ★
+// エラー対策済み
 function escapeHtml(s){ 
   if (s == null) return "";
   return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); 
@@ -239,11 +239,13 @@ function initFirebase(cfg){
 }
 
 /* ====================== ルーム操作 ====================== */
-async function createRoom(name){
+// ★ カスタムテーマを受け取れるように変更
+async function createRoom(name, customTheme){
   myName = name.trim() || "プレイヤー";
   const code = genRoomCode();
   const ref = db.collection("owarema_rooms").doc(code);
-  const theme = THEMES[Math.floor(Math.random()*THEMES.length)];
+  const theme = (customTheme && customTheme.trim()) || THEMES[Math.floor(Math.random()*THEMES.length)];
+  
   await ref.set({
     hostId: uid, status:"playing", round:1, theme,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -302,6 +304,7 @@ async function submitAnswer(kanji){
   await ref.set({ name: myName, kanji, submittedAt: firebase.firestore.FieldValue.serverTimestamp() });
 }
 
+// ★ カスタムテーマを受け取れるように変更
 async function nextRound(customTheme){
   const theme = (customTheme && customTheme.trim()) || THEMES[Math.floor(Math.random()*THEMES.length)];
   await db.collection("owarema_rooms").doc(roomId).update({
@@ -329,9 +332,13 @@ function renderLobby(){
   app.appendChild(el(`<h1>漢字で揃うまで<br>おわれまテン<span class="beta">beta</span></h1>`));
   app.appendChild(el(`<p class="sub">お題に対して、みんなが同じ漢字を答えるまで終われません</p>`));
 
+  // ★ 最初のお題入力欄を追加
   const create = el(`<div class="card">
     <label>ニックネーム</label>
     <input type="text" id="nameInputC" maxlength="12" placeholder="例: あすふぁると">
+    <div style="height:10px"></div>
+    <label>最初のお題（空欄でランダム）</label>
+    <input type="text" id="firstThemeInput" placeholder="例: 好きな寿司ネタを漢字で">
     <div style="height:12px"></div>
     <button class="btn-primary" id="createBtn">新しいルームを作る</button>
   </div>`);
@@ -352,7 +359,8 @@ function renderLobby(){
 
   document.getElementById('createBtn').onclick = ()=>{
     const name = document.getElementById('nameInputC').value;
-    createRoom(name).catch(e=>{ joinError="ルーム作成に失敗しました: "+e.message; render(); });
+    const theme = document.getElementById('firstThemeInput').value; // ★ テーマを取得
+    createRoom(name, theme).catch(e=>{ joinError="ルーム作成に失敗しました: "+e.message; render(); });
   };
   document.getElementById('joinBtn').onclick = ()=>{
     const name = document.getElementById('nameInputJ').value;
@@ -397,10 +405,21 @@ function renderRoom(){
       </div>`));
     });
     app.appendChild(grid);
+
     if(isHost){
-      const again = el(`<button class="btn-primary">もう一度遊ぶ</button>`);
-      again.onclick = ()=> nextRound();
-      app.appendChild(again);
+      // ★ クリアした時（Win）にも次のお題を入力できるように追加
+      const nextThemeCard = el(`<div class="card" style="margin-top:14px; margin-bottom:10px;">
+        <label>次のお題（空欄でランダム）</label>
+        <input type="text" id="nextThemeInputWin" placeholder="例: 今の気分を漢字一文字で">
+        <div style="height:12px"></div>
+        <button class="btn-primary" id="playAgainBtn">次のお題で遊ぶ</button>
+      </div>`);
+      app.appendChild(nextThemeCard);
+
+      document.getElementById('playAgainBtn').onclick = ()=>{
+        const t = document.getElementById('nextThemeInputWin').value;
+        nextRound(t);
+      };
     } else {
       app.appendChild(el(`<p class="status-line">ホストが次のゲームを始めるのを待っています…</p>`));
     }
