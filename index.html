@@ -212,7 +212,7 @@ function genRoomCode(){
 }
 function el(html){ const d=document.createElement('div'); d.innerHTML=html.trim(); return d.firstElementChild; }
 
-// エラー対策済み
+// 描画エラー修正部分
 function escapeHtml(s){ 
   if (s == null) return "";
   return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); 
@@ -222,7 +222,7 @@ function isSingleKanji(s){
   return /^[\u4E00-\u9FFF\u3400-\u4DBF]{1,2}$/.test(s.trim());
 }
 
-/* ====================== Firebase設定 ====================== */
+/* ====================== Firebase ====================== */
 function initFirebase(cfg){
   try{
     if(!firebase.apps.length) firebase.initializeApp(cfg);
